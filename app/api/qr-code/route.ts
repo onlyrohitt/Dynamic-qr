@@ -36,14 +36,16 @@ export async function GET(req: NextRequest) {
       errorCorrectionLevel: 'H', // highest error correction — survives printing wear
     });
 
-    return new NextResponse(pngBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/png',
-        'Content-Disposition': `attachment; filename="dynamic-qr-${size}px.png"`,
-        'Cache-Control': 'private, max-age=86400', // cache 24h — QR URL never changes
-      },
-    });
+    
+return new NextResponse(new Uint8Array(pngBuffer), {
+  status: 200,
+  headers: {
+    'Content-Type': 'image/png',
+    'Content-Disposition': `attachment; filename="dynamic-qr-${size}px.png"`,
+    'Cache-Control': 'private, max-age=86400',
+  },
+});
+
   } catch (err) {
     console.error('[/api/qr-code]', err);
     return NextResponse.json({ error: 'Failed to generate QR code.' }, { status: 500 });
