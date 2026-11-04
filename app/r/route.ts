@@ -1,48 +1,52 @@
 /**
  * GET /r
- *
- * This is the URL that gets encoded into the QR code.
- * It reads the current destination from Supabase and issues a 302 redirect.
- *
- * WHY 302 (temporary) and NOT 301 (permanent)?
- *   301 redirects are cached by browsers indefinitely.
- *   If we used 301, scanning the QR after changing the URL would
- *   still go to the OLD destination from the browser cache.
- *   302 is never cached, so every scan hits this server fresh.
+ * Fallback redirect handler.
+ * If query param ?code=... is given, forwards to /r/[code].
+ * Otherwise redirects to the first active QR or displays informative notice.
  */
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllQRs, getQRByCode, incrementScan } from '@/lib/qr-storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('qr_destination')
-      .select('url')
-      .eq('id', 1)
-      .single();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const codeParam = searchParams.get('code');
 
-    if (error || !data?.url) {
-      // Fallback if DB not set up yet
-      return NextResponse.json(
-        { error: 'Destination URL not configured. Log in to set one.' },
-        { status: 503 }
-      );
+  if (codeParam) {
+    const item = await getQRByCode(codeParam);
+    if (item && item.is_active) {
+      incrementScan(item.code).catch(() => {});
+      return NextResponse.redirect(item.destination, {
+        status: 302,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      });
     }
+  }
 
-    return NextResponse.redirect(data.url, {
+  // Look for any default or first active QR
+  const all = await getAllQRs();
+  const active = all.find((q) => q.is_active);
+
+  if (active) {
+    incrementScan(active.code).catch(() => {});
+    return NextResponse.redirect(active.destination, {
       status: 302,
       headers: {
-        // Explicitly prevent all caching
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         Pragma: 'no-cache',
         Expires: '0',
       },
     });
-  } catch (err) {
-    console.error('[/r] Unexpected error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+
+  return NextResponse.json(
+    { message: 'Dynamic QR Service is active. Access customer routes via /r/[code].' },
+    { status: 200 }
+  );
 }

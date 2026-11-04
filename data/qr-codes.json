@@ -1,0 +1,112 @@
+[
+  {
+    "id": "qr_1793525137606_yjk2n",
+    "code": "CUST-1140",
+    "label": "Tea-Cafe",
+    "destination": "https://youtube.com/",
+    "theme": {
+      "preset": "midnight",
+      "fgColor": "#38bdf8",
+      "bgColor": "#0b1120",
+      "eyeColor": "#06b6d4",
+      "dotStyle": "rounded",
+      "eyeStyle": "rounded",
+      "frameStyle": "banner-bottom",
+      "frameText": "SCAN TO VISIT",
+      "centerIcon": "globe"
+    },
+    "scan_count": 0,
+    "is_active": true,
+    "last_scanned_at": null,
+    "created_at": "2026-11-01T09:25:37.606Z",
+    "updated_at": "2026-11-01T09:26:10.284Z"
+  },
+  {
+    "id": "qr_1793041973913_s71cr",
+    "code": "BELLA-99",
+    "label": "Bella Italia Restaurant",
+    "destination": "https://example.com/bella-menu",
+    "theme": {
+      "preset": "emerald",
+      "fgColor": "#10b981",
+      "bgColor": "#041d14",
+      "eyeColor": "#0f172a",
+      "dotStyle": "squares",
+      "eyeStyle": "square",
+      "frameStyle": "none",
+      "frameText": "SCAN FOR MENU",
+      "centerIcon": "none"
+    },
+    "scan_count": 1,
+    "is_active": true,
+    "last_scanned_at": "2026-10-26T19:13:01.787Z",
+    "created_at": "2026-10-26T19:12:53.913Z",
+    "updated_at": "2026-10-26T19:12:53.913Z"
+  },
+  {
+    "id": "sample-1",
+    "code": "CAFE-901",
+    "label": "Artisan Coffee Roasters",
+    "destination": "https://example.com/artisan-coffee-menu",
+    "theme": {
+      "preset": "emerald",
+      "fgColor": "#10b981",
+      "bgColor": "#041d14",
+      "eyeColor": "#34d399",
+      "dotStyle": "rounded",
+      "eyeStyle": "rounded",
+      "frameStyle": "banner-bottom",
+      "frameText": "SCAN FOR MENU",
+      "centerIcon": "coffee"
+    },
+    "scan_count": 143,
+    "is_active": true,
+    "last_scanned_at": "2026-10-26T18:32:33.534Z",
+    "created_at": "2026-10-19T18:32:24.440Z",
+    "updated_at": "2026-10-24T18:32:24.440Z"
+  },
+  {
+    "id": "sample-2",
+    "code": "VIP-778",
+    "label": "Grand Gala Lounge & Bar",
+    "destination": "https://example.com/vip-drink-list",
+    "theme": {
+      "preset": "gold",
+      "fgColor": "#fbbf24",
+      "bgColor": "#18181b",
+      "eyeColor": "#f59e0b",
+      "dotStyle": "rounded",
+      "eyeStyle": "rounded",
+      "frameStyle": "banner-bottom",
+      "frameText": "VIP ACCESS",
+      "centerIcon": "star"
+    },
+    "scan_count": 89,
+    "is_active": true,
+    "last_scanned_at": "2026-10-26T16:57:24.440Z",
+    "created_at": "2026-10-22T18:32:24.440Z",
+    "updated_at": "2026-10-25T18:32:24.440Z"
+  },
+  {
+    "id": "sample-3",
+    "code": "TECH-104",
+    "label": "NextGen Digital Agency",
+    "destination": "https://example.com/case-studies",
+    "theme": {
+      "preset": "midnight",
+      "fgColor": "#38bdf8",
+      "bgColor": "#0b1120",
+      "eyeColor": "#06b6d4",
+      "dotStyle": "rounded",
+      "eyeStyle": "rounded",
+      "frameStyle": "banner-bottom",
+      "frameText": "SCAN TO VISIT",
+      "centerIcon": "globe"
+    },
+    "scan_count": 230,
+    "is_active": true,
+    "last_scanned_at": "2026-10-26T18:20:24.440Z",
+    "created_at": "2026-10-12T18:32:24.440Z",
+    "updated_at": "2026-10-26T06:32:24.440Z"
+  }
+]

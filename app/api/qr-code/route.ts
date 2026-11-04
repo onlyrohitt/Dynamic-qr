@@ -1,13 +1,11 @@
 /**
- * GET /api/qr-code?size=800
- *
- * Generates the QR code PNG server-side.
- * The QR code always encodes YOUR_APP_URL/r — the permanent redirect endpoint.
- * Auth required (so the URL is not publicly guessable via this endpoint).
+ * GET /api/qr-code?code=...&size=800
+ * Legacy & general-purpose QR generation endpoint.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import QRCode from 'qrcode';
 import { getAdminSession } from '@/lib/auth';
+import { getQRByCode, getAllQRs } from '@/lib/qr-storage';
+import { generateQRPngBuffer, DEFAULT_THEME } from '@/lib/qr-themes';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,35 +15,44 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const redirectUrl = `${appUrl}/r`;
-
   const { searchParams } = new URL(req.url);
+  const codeParam = searchParams.get('code');
   const rawSize = parseInt(searchParams.get('size') ?? '800', 10);
-  const size = Math.min(Math.max(rawSize, 200), 2000); // clamp 200–2000px
+  const size = Math.min(Math.max(isNaN(rawSize) ? 800 : rawSize, 200), 2000);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+  let targetCode = codeParam;
+  let targetTheme = DEFAULT_THEME;
+
+  if (codeParam) {
+    const item = await getQRByCode(codeParam);
+    if (item) {
+      targetTheme = item.theme || DEFAULT_THEME;
+    }
+  } else {
+    const all = await getAllQRs();
+    if (all.length > 0) {
+      targetCode = all[0].code;
+      targetTheme = all[0].theme || DEFAULT_THEME;
+    }
+  }
+
+  const redirectUrl = targetCode
+    ? `${appUrl}/r/${encodeURIComponent(targetCode)}`
+    : `${appUrl}/r`;
 
   try {
-    const pngBuffer = await QRCode.toBuffer(redirectUrl, {
-      type: 'png',
-      width: size,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
+    const pngBuffer = await generateQRPngBuffer(redirectUrl, targetTheme, size);
+
+    return new NextResponse(new Uint8Array(pngBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Disposition': `attachment; filename="dynamic-qr-${size}px.png"`,
+        'Cache-Control': 'private, max-age=86400',
       },
-      errorCorrectionLevel: 'H', // highest error correction — survives printing wear
     });
-
-    
-return new NextResponse(new Uint8Array(pngBuffer), {
-  status: 200,
-  headers: {
-    'Content-Type': 'image/png',
-    'Content-Disposition': `attachment; filename="dynamic-qr-${size}px.png"`,
-    'Cache-Control': 'private, max-age=86400',
-  },
-});
-
   } catch (err) {
     console.error('[/api/qr-code]', err);
     return NextResponse.json({ error: 'Failed to generate QR code.' }, { status: 500 });

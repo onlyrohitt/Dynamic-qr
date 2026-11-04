@@ -1,31 +1,28 @@
 import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getAllQRs, getDashboardStats } from '@/lib/qr-storage';
 import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Dashboard – Dynamic QR' };
+export const revalidate = 0;
+export const metadata = { title: 'Dynamic QR Manager Pro – Multi-Customer Admin' };
 
 export default async function DashboardPage() {
-  // Server-side auth guard
   const session = await getAdminSession();
   if (!session) redirect('/admin/login');
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const redirectUrl = `${appUrl}/r`;
 
-  // Pre-fetch current destination for instant render
-  const { data } = await supabaseAdmin
-    .from('qr_destination')
-    .select('url, updated_at')
-    .eq('id', 1)
-    .maybeSingle();
+  const [qrs, stats] = await Promise.all([
+    getAllQRs(),
+    getDashboardStats(),
+  ]);
 
   return (
     <DashboardClient
-      initialUrl={data?.url ?? null}
-      initialUpdatedAt={data?.updated_at ?? null}
-      redirectUrl={redirectUrl}
+      initialQrs={qrs}
+      initialStats={stats}
+      appUrl={appUrl}
       adminUsername={session}
     />
   );
