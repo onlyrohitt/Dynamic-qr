@@ -394,24 +394,13 @@ export async function incrementScan(code: string): Promise<void> {
 
   if (!useLocalFallback) {
     try {
-      const { data } = await supabaseAdmin
-        .from('qr_codes')
-        .select('scan_count')
-        .ilike('code', normCode)
-        .maybeSingle();
-
-      if (data) {
-        await supabaseAdmin
-          .from('qr_codes')
-          .update({
-            scan_count: (data.scan_count || 0) + 1,
-            last_scanned_at: now,
-          })
-          .ilike('code', normCode);
+      const { error } = await supabaseAdmin.rpc('increment_qr_scan', { qr_code: normCode });
+      if (!error) {
         return;
       }
+      console.warn('[qr-storage] Atomic scan increment unavailable; using fallback:', error.message);
     } catch {
-      useLocalFallback = true;
+      // Continue to local fallback if the database function is not installed.
     }
   }
 

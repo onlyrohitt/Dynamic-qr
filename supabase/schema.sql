@@ -26,6 +26,20 @@ CREATE INDEX IF NOT EXISTS idx_qr_codes_code ON public.qr_codes(code);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_lower_code ON public.qr_codes (lower(code));
 CREATE INDEX IF NOT EXISTS idx_qr_codes_created_at ON public.qr_codes (created_at DESC);
 
+-- Atomic scan counter prevents overlapping redirects from overwriting each other.
+CREATE OR REPLACE FUNCTION public.increment_qr_scan(qr_code TEXT)
+RETURNS VOID
+LANGUAGE SQL
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.qr_codes
+  SET scan_count = scan_count + 1, last_scanned_at = now()
+  WHERE lower(code) = lower(qr_code);
+$$;
+REVOKE ALL ON FUNCTION public.increment_qr_scan(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_qr_scan(TEXT) TO service_role;
+
 -- 3. Comments for clarity
 COMMENT ON TABLE  public.qr_codes                 IS 'Multi-customer dynamic QR codes with customizable themes and analytics.';
 COMMENT ON COLUMN public.qr_codes.code            IS 'Unique identifier/code printed or shared (e.g. CUST-1001).';

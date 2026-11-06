@@ -134,6 +134,8 @@ export function generateStyledQRSvg(
   const frameStyle: FrameStyle = theme.frameStyle || 'none';
   const frameText = (theme.frameText || 'SCAN ME').toUpperCase();
   const centerIcon: CenterIconType = theme.centerIcon || 'none';
+  const centerLogo = typeof theme.centerLogo === 'string' && /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(theme.centerLogo)
+    ? theme.centerLogo : '';
 
   // Generate QR matrix
   const qr = QRCode.create(url, { errorCorrectionLevel: 'H' });
@@ -164,7 +166,7 @@ export function generateStyledQRSvg(
   ];
 
   // Draw modules
-  const hasCenterIcon = centerIcon !== 'none';
+  const hasCenterIcon = centerIcon !== 'none' || Boolean(centerLogo);
   const centerRadiusModules = hasCenterIcon ? 3.5 : 0;
 
   for (let r = 0; r < moduleCount; r++) {
@@ -237,7 +239,10 @@ export function generateStyledQRSvg(
 
     // Icon in center
     const iconSvg = ICONS[centerIcon];
-    if (iconSvg) {
+    if (centerLogo) {
+      const logoSize = cellSize * 5.2;
+      elements += `<image href="${centerLogo}" x="${centerPxX - logoSize / 2}" y="${centerPxY - logoSize / 2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`;
+    } else if (iconSvg) {
       const iconSize = cellSize * 4.2;
       const iconX = centerPxX - iconSize / 2;
       const iconY = centerPxY - iconSize / 2;
@@ -272,7 +277,7 @@ export function generateStyledQRSvg(
     `;
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="100%" height="100%" shape-rendering="geometricPrecision">${elements}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}" shape-rendering="geometricPrecision">${elements}</svg>`;
   return svg;
 }
 

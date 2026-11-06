@@ -341,21 +341,40 @@ export default function DashboardClient({
   };
 
   /* ── Download Handler ────────────────────────── */
-  const handleDownload = async (code: string, format: 'png' | 'svg', size = 800) => {
+  const handleDownload = async (item: QRCodeItem, format: 'png' | 'svg', size = 800) => {
+    const { code } = item;
     setDownloading(true);
     try {
-      const endpoint = format === 'png'
-        ? `/api/qr-image/${encodeURIComponent(code)}?size=${size}&download=true`
-        : `/api/qr-svg/${encodeURIComponent(code)}?download=true`;
+      const endpoint = `/api/qr-svg/${encodeURIComponent(code)}?download=true`;
 
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error('Download failed');
 
-      const blob = await res.blob();
+      let blob = await res.blob();
+      if (format === 'png') {
+        const imageUrl = URL.createObjectURL(blob);
+        try {
+          const image = new Image();
+          image.src = imageUrl;
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = Math.round(size * image.height / image.width);
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Canvas is unavailable');
+          context.fillStyle = item.theme?.bgColor || '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('PNG conversion failed')), 'image/png'));
+        } finally {
+          URL.revokeObjectURL(imageUrl);
+        }
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = format === 'png' ? `qr-${code.toLowerCase()}-${size}px.png` : `qr-${code.toLowerCase()}.svg`;
+      const safeLabel = item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'customer';
+      a.download = format === 'png' ? `${safeLabel}-${code.toLowerCase()}-${size}px.png` : `${safeLabel}-${code.toLowerCase()}.svg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -417,7 +436,7 @@ export default function DashboardClient({
         (statusFilter === 'paused' && !item.is_active);
 
       return matchesSearch && matchesStatus;
-    });
+    }).sort((a, b) => (b.scan_count || 0) - (a.scan_count || 0));
   }, [qrs, searchQuery, statusFilter]);
 
   function formatDate(iso: string | null | undefined) {
@@ -590,7 +609,7 @@ export default function DashboardClient({
           <div className="stat-card">
             <span className="stat-label">Top Scanned Code</span>
             <span className="stat-val" style={{ fontSize: '1.25rem', color: '#fbbf24' }}>
-              {stats.topScannedCode || '—'}
+              {stats.topScannedCode ? `${stats.topScannedCode} · ${qrs.find((q) => q.code === stats.topScannedCode)?.scan_count || 0} scans` : 'No scans yet'}
             </span>
           </div>
         </div>
@@ -966,7 +985,7 @@ export default function DashboardClient({
                     <button
                       type="button"
                       className="btn btn-ghost btn-sm"
-                      onClick={() => handleDownload(selectedQR.code, 'png', 800)}
+                      onClick={() => handleDownload(selectedQR, 'png', 800)}
                       disabled={downloading}
                     >
                       PNG 800px
@@ -975,7 +994,7 @@ export default function DashboardClient({
                       type="button"
                       className="btn btn-primary btn-sm"
                       style={{ flex: 1 }}
-                      onClick={() => handleDownload(selectedQR.code, 'png', 1200)}
+                      onClick={() => handleDownload(selectedQR, 'png', 1200)}
                       disabled={downloading}
                     >
                       PNG 1200px (Print)
@@ -983,7 +1002,7 @@ export default function DashboardClient({
                     <button
                       type="button"
                       className="btn btn-ghost btn-sm"
-                      onClick={() => handleDownload(selectedQR.code, 'svg')}
+                      onClick={() => handleDownload(selectedQR, 'svg')}
                       disabled={downloading}
                     >
                       SVG (Vector)
@@ -1162,7 +1181,7 @@ export default function DashboardClient({
                   {/* Center Icon */}
                   <div style={{ marginTop: '0.85rem' }}>
                     <label className="muted" style={{ fontSize: '0.72rem', fontWeight: 600 }}>
-                      Center Badge Icon
+                      Center Badge Icon or Customer Logo
                     </label>
                     <div className="option-pill-group">
                       {(['none', 'globe', 'store', 'coffee', 'utensils', 'star', 'link', 'phone'] as CenterIconType[]).map((icon) => (
@@ -1177,6 +1196,36 @@ export default function DashboardClient({
                         </button>
                       ))}
                     </div>
+                    <div className="row" style={{ gap: '0.5rem', marginTop: '0.45rem' }}>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        aria-label="Upload customer logo for QR center badge"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 256 * 1024) {
+                            setModalMsg({ type: 'error', text: 'Logo must be 256 KB or smaller.' });
+                            e.currentTarget.value = '';
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                              setEditTheme((prev) => ({ ...prev, centerLogo: reader.result as string, centerIcon: 'none' }));
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                        style={{ fontSize: '0.72rem', minWidth: 0 }}
+                      />
+                      {editTheme.centerLogo && (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditTheme((prev) => ({ ...prev, centerLogo: undefined }))}>
+                          Remove logo
+                        </button>
+                      )}
+                    </div>
+                    <span className="muted" style={{ fontSize: '0.68rem' }}>PNG, JPG or WebP; max 256 KB. Save design to apply.</span>
                   </div>
 
                   {/* Custom Colors */}

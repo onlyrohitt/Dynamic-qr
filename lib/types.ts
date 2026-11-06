@@ -13,6 +13,7 @@ export interface QRThemeConfig {
   frameStyle?: FrameStyle;
   frameText?: string; // e.g. "SCAN ME"
   centerIcon?: CenterIconType;
+  centerLogo?: string; // Small data URL for a customer supplied center badge image
 }
 
 export interface QRCodeItem {
