@@ -779,7 +779,7 @@ export default function DashboardClient({
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            onClick={() => handleDownload(item.code, 'png', 1200)}
+                            onClick={() => handleDownload(item, 'png', 1200)}
                             title="Download PNG"
                           >
                             📥
