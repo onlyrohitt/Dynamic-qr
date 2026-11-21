@@ -10,6 +10,18 @@ import { getAllQRs, getQRByCode, incrementScan } from '@/lib/qr-storage';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+/** Returns a valid http(s) URL object, or null if the destination is malformed. */
+function toSafeRedirectUrl(destination: string | undefined | null): URL | null {
+  if (!destination) return null;
+  try {
+    const url = new URL(destination);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const codeParam = searchParams.get('code');
@@ -17,25 +29,31 @@ export async function GET(req: NextRequest) {
   if (codeParam) {
     const item = await getQRByCode(codeParam);
     if (item && item.is_active) {
-      incrementScan(item.code).catch(() => {});
-      return NextResponse.redirect(item.destination, {
-        status: 302,
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-          Pragma: 'no-cache',
-          Expires: '0',
-        },
-      });
+      const safeUrl = toSafeRedirectUrl(item.destination);
+      if (safeUrl) {
+        incrementScan(item.code).catch(() => {});
+        return NextResponse.redirect(safeUrl, {
+          status: 302,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+          },
+        });
+      }
+      console.error(`[r?code=${codeParam}] Invalid destination URL "${item.destination}"`);
     }
   }
 
-  // Look for any default or first active QR
+  // Look for any default or first active QR with a valid destination
   const all = await getAllQRs();
-  const active = all.find((q) => q.is_active);
+  for (const candidate of all) {
+    if (!candidate.is_active) continue;
+    const safeUrl = toSafeRedirectUrl(candidate.destination);
+    if (!safeUrl) continue;
 
-  if (active) {
-    incrementScan(active.code).catch(() => {});
-    return NextResponse.redirect(active.destination, {
+    incrementScan(candidate.code).catch(() => {});
+    return NextResponse.redirect(safeUrl, {
       status: 302,
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

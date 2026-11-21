@@ -9,7 +9,32 @@ const LOCAL_DB_FILE = path.join(DATA_DIR, 'qr-codes.json');
 
 // Memory cache fallback for fast response & local durability
 let memoryStore: QRCodeItem[] | null = null;
-let useLocalFallback = false;
+
+// NOTE: This used to be a single global flag that, once set to `true` after
+// any transient Supabase error, permanently disabled the database for the
+// lifetime of the server process (or serverless instance). That meant a
+// single network blip would silently and permanently downgrade the entire
+// app to the local-file fallback, which doesn't work in serverless/Vercel
+// deployments (the filesystem there is read-only outside of /tmp, so writes
+// silently fail and "new" QR codes only live until the current instance
+// recycles). We now retry Supabase on every call so a temporary failure
+// doesn't permanently break storage. `lastSupabaseFailureAt` is only used to
+// avoid hammering Supabase with retries in a tight loop when it's genuinely
+// unreachable (e.g. missing table/misconfigured project).
+let lastSupabaseFailureAt = 0;
+const SUPABASE_RETRY_COOLDOWN_MS = 5000;
+
+function shouldTrySupabase(): boolean {
+  return Date.now() - lastSupabaseFailureAt > SUPABASE_RETRY_COOLDOWN_MS;
+}
+
+function markSupabaseFailure() {
+  lastSupabaseFailureAt = Date.now();
+}
+
+function markSupabaseSuccess() {
+  lastSupabaseFailureAt = 0;
+}
 
 const SAMPLE_INITIAL_QRS: QRCodeItem[] = [
   {
@@ -99,7 +124,12 @@ function readLocalFile(): QRCodeItem[] {
 }
 
 /**
- * Save to local fallback JSON file
+ * Save to local fallback JSON file. On serverless platforms (e.g. Vercel)
+ * the filesystem is read-only outside of /tmp, so this write will fail -
+ * that's expected and NOT fatal. In that case we still keep the in-memory
+ * `memoryStore` up to date so the app keeps working for the lifetime of the
+ * current instance, and log clearly so it's obvious persistence isn't
+ * actually happening (the real fix is to configure Supabase correctly).
  */
 function writeLocalFile(items: QRCodeItem[]) {
   try {
@@ -108,7 +138,11 @@ function writeLocalFile(items: QRCodeItem[]) {
     }
     fs.writeFileSync(LOCAL_DB_FILE, JSON.stringify(items, null, 2), 'utf-8');
   } catch (err) {
-    console.error('[qr-storage] Failed to write local DB file:', err);
+    console.error(
+      '[qr-storage] Failed to write local DB file (expected on read-only/serverless filesystems). ' +
+        'Data will only persist for the current instance and Supabase should be configured for durable storage:',
+      err
+    );
   }
 }
 
@@ -135,7 +169,7 @@ export function normalizeCode(code: string): string {
  * Fetch all QR codes
  */
 export async function getAllQRs(): Promise<QRCodeItem[]> {
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const { data, error } = await supabaseAdmin
         .from('qr_codes')
@@ -143,6 +177,7 @@ export async function getAllQRs(): Promise<QRCodeItem[]> {
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
+        markSupabaseSuccess();
         // Map database columns to QRCodeItem interface
         return data.map((row) => ({
           id: row.id,
@@ -159,10 +194,10 @@ export async function getAllQRs(): Promise<QRCodeItem[]> {
       }
 
       console.warn('[qr-storage] Supabase query failed or qr_codes table missing, falling back to local store:', error?.message);
-      useLocalFallback = true;
+      markSupabaseFailure();
     } catch (err: any) {
       console.warn('[qr-storage] Network/DB error connecting to Supabase, falling back to local store:', err?.message || err);
-      useLocalFallback = true;
+      markSupabaseFailure();
     }
   }
 
@@ -176,7 +211,7 @@ export async function getQRByCode(code: string): Promise<QRCodeItem | null> {
   const normCode = normalizeCode(code);
   if (!normCode) return null;
 
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const { data, error } = await supabaseAdmin
         .from('qr_codes')
@@ -184,22 +219,33 @@ export async function getQRByCode(code: string): Promise<QRCodeItem | null> {
         .ilike('code', normCode)
         .maybeSingle();
 
-      if (!error && data) {
-        return {
-          id: data.id,
-          code: data.code,
-          label: data.label || data.customer_name || 'Customer QR',
-          destination: data.destination || data.url,
-          theme: data.theme && typeof data.theme === 'object' ? data.theme : DEFAULT_THEME,
-          scan_count: data.scan_count ?? 0,
-          is_active: data.is_active ?? true,
-          last_scanned_at: data.last_scanned_at ?? null,
-          created_at: data.created_at || new Date().toISOString(),
-          updated_at: data.updated_at || new Date().toISOString(),
-        };
+      if (!error) {
+        markSupabaseSuccess();
+        if (data) {
+          return {
+            id: data.id,
+            code: data.code,
+            label: data.label || data.customer_name || 'Customer QR',
+            destination: data.destination || data.url,
+            theme: data.theme && typeof data.theme === 'object' ? data.theme : DEFAULT_THEME,
+            scan_count: data.scan_count ?? 0,
+            is_active: data.is_active ?? true,
+            last_scanned_at: data.last_scanned_at ?? null,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+          };
+        }
+        // Supabase is reachable and the table exists, it's simply not in
+        // there. Don't fall through to the local store in that case - that
+        // would wrongly find/miss codes depending on which store happens to
+        // have stale data.
+        return null;
       }
-    } catch {
-      useLocalFallback = true;
+      console.warn('[qr-storage] getQRByCode Supabase query failed, falling back to local store:', error.message);
+      markSupabaseFailure();
+    } catch (err: any) {
+      console.warn('[qr-storage] getQRByCode Supabase error, falling back to local store:', err?.message || err);
+      markSupabaseFailure();
     }
   }
 
@@ -225,9 +271,12 @@ export async function createQR(payload: {
     code = generateUniqueCode();
   }
 
-  // Ensure code uniqueness
-  const existing = await getQRByCode(code);
-  if (existing) {
+  // Ensure code uniqueness - retry a handful of times instead of just once,
+  // since a single retry can still collide (especially once there are many
+  // existing codes).
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const existing = await getQRByCode(code);
+    if (!existing) break;
     code = generateUniqueCode(code.slice(0, 4));
   }
 
@@ -250,7 +299,7 @@ export async function createQR(payload: {
     updated_at: now,
   };
 
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const { data, error } = await supabaseAdmin
         .from('qr_codes')
@@ -268,6 +317,7 @@ export async function createQR(payload: {
         .single();
 
       if (!error && data) {
+        markSupabaseSuccess();
         return {
           id: data.id,
           code: data.code,
@@ -282,10 +332,10 @@ export async function createQR(payload: {
         };
       }
       console.warn('[qr-storage] Could not insert into Supabase, saving to local store:', error?.message);
-      useLocalFallback = true;
+      markSupabaseFailure();
     } catch (err: any) {
       console.warn('[qr-storage] Supabase insert failed, saving to local store:', err?.message || err);
-      useLocalFallback = true;
+      markSupabaseFailure();
     }
   }
 
@@ -305,7 +355,7 @@ export async function updateQR(
   const normCode = normalizeCode(code);
   const now = new Date().toISOString();
 
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const dbUpdates: Record<string, any> = { updated_at: now };
       if (updates.destination !== undefined) dbUpdates.destination = updates.destination;
@@ -321,6 +371,7 @@ export async function updateQR(
         .single();
 
       if (!error && data) {
+        markSupabaseSuccess();
         return {
           id: data.id,
           code: data.code,
@@ -334,8 +385,13 @@ export async function updateQR(
           updated_at: data.updated_at,
         };
       }
-    } catch {
-      useLocalFallback = true;
+      if (error) {
+        console.warn('[qr-storage] updateQR Supabase query failed, falling back to local store:', error.message);
+        markSupabaseFailure();
+      }
+    } catch (err: any) {
+      console.warn('[qr-storage] updateQR Supabase error, falling back to local store:', err?.message || err);
+      markSupabaseFailure();
     }
   }
 
@@ -365,16 +421,22 @@ export async function updateQR(
 export async function deleteQR(code: string): Promise<boolean> {
   const normCode = normalizeCode(code);
 
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const { error } = await supabaseAdmin
         .from('qr_codes')
         .delete()
         .ilike('code', normCode);
 
-      if (!error) return true;
-    } catch {
-      useLocalFallback = true;
+      if (!error) {
+        markSupabaseSuccess();
+        return true;
+      }
+      console.warn('[qr-storage] deleteQR Supabase query failed, falling back to local store:', error.message);
+      markSupabaseFailure();
+    } catch (err: any) {
+      console.warn('[qr-storage] deleteQR Supabase error, falling back to local store:', err?.message || err);
+      markSupabaseFailure();
     }
   }
 
@@ -392,14 +454,18 @@ export async function incrementScan(code: string): Promise<void> {
   const normCode = normalizeCode(code);
   const now = new Date().toISOString();
 
-  if (!useLocalFallback) {
+  if (shouldTrySupabase()) {
     try {
       const { error } = await supabaseAdmin.rpc('increment_qr_scan', { qr_code: normCode });
       if (!error) {
+        markSupabaseSuccess();
         return;
       }
       console.warn('[qr-storage] Atomic scan increment unavailable; using fallback:', error.message);
-    } catch {
+      markSupabaseFailure();
+    } catch (err: any) {
+      console.warn('[qr-storage] Atomic scan increment error; using fallback:', err?.message || err);
+      markSupabaseFailure();
       // Continue to local fallback if the database function is not installed.
     }
   }

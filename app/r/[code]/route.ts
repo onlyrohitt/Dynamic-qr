@@ -60,13 +60,38 @@ export async function GET(
       });
     }
 
+    // Guard against a missing/malformed destination (e.g. data created
+    // before validation was in place, or a destination that somehow lost
+    // its protocol). NextResponse.redirect() throws on an invalid URL,
+    // which would otherwise surface as an opaque 500 and look like "the
+    // link just doesn't redirect".
+    let destinationUrl: URL;
+    try {
+      destinationUrl = new URL(item.destination);
+      if (destinationUrl.protocol !== 'http:' && destinationUrl.protocol !== 'https:') {
+        throw new Error(`Unsupported protocol: ${destinationUrl.protocol}`);
+      }
+    } catch (err) {
+      console.error(`[r/${item.code}] Invalid destination URL "${item.destination}":`, err);
+      return new NextResponse(renderStatusHtml({
+        title: 'Invalid Destination',
+        badge: 'Configuration Error',
+        badgeColor: '#ef4444',
+        message: `This QR code ("${item.label}") points to a destination that isn't a valid URL. Please ask the administrator to fix it in the dashboard.`,
+        code: item.code,
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
     // Increment scan analytics in background
     incrementScan(item.code).catch((err) =>
       console.error(`[r/${item.code}] Failed to increment scan count:`, err)
     );
 
     // Issue 302 temporary redirect (never cached by browsers)
-    return NextResponse.redirect(item.destination, {
+    return NextResponse.redirect(destinationUrl, {
       status: 302,
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
