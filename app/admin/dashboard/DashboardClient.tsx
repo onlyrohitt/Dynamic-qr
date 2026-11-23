@@ -24,6 +24,29 @@ export default function DashboardClient({
   const [qrs, setQrs] = useState<QRCodeItem[]>(initialQrs);
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [refreshingStats, setRefreshingStats] = useState(false);
+
+  /* ── Live Stats Refresh ──────────────────────── */
+  const refreshStats = useCallback(async (silent = false) => {
+    if (!silent) setRefreshingStats(true);
+    try {
+      const res = await fetch('/api/stats');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.stats) setStats(data.stats);
+      }
+    } catch {
+      // Silently ignore network errors during background refresh
+    } finally {
+      if (!silent) setRefreshingStats(false);
+    }
+  }, []);
+
+  // Auto-refresh stats every 30 seconds to reflect real scans
+  useEffect(() => {
+    const interval = setInterval(() => refreshStats(true), 30_000);
+    return () => clearInterval(interval);
+  }, [refreshStats]);
 
   // Quick Code Lookup State
   const [lookupInput, setLookupInput] = useState('');
@@ -598,9 +621,33 @@ export default function DashboardClient({
             <span className="stat-label">Total Customer QRs</span>
             <span className="stat-val" style={{ color: '#38bdf8' }}>{stats.totalQRs}</span>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" style={{ position: 'relative' }}>
             <span className="stat-label">Total Scans Recorded</span>
             <span className="stat-val" style={{ color: '#10b981' }}>{stats.totalScans}</span>
+            <button
+              type="button"
+              onClick={() => refreshStats(false)}
+              disabled={refreshingStats}
+              title="Refresh scan count from database"
+              style={{
+                position: 'absolute',
+                top: '0.6rem',
+                right: '0.6rem',
+                background: 'none',
+                border: 'none',
+                cursor: refreshingStats ? 'not-allowed' : 'pointer',
+                color: '#10b981',
+                fontSize: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                opacity: refreshingStats ? 0.5 : 0.8,
+                padding: '0.2rem 0.4rem',
+                borderRadius: 4,
+              }}
+            >
+              {refreshingStats ? '⏳' : '↻'} {refreshingStats ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
           <div className="stat-card">
             <span className="stat-label">Active Redirections</span>

@@ -79,7 +79,7 @@ VALUES
     'Artisan Coffee Roasters',
     'https://example.com/artisan-coffee-menu',
     '{"preset":"emerald","fgColor":"#10b981","bgColor":"#041d14","eyeColor":"#34d399","dotStyle":"rounded","eyeStyle":"rounded","frameStyle":"banner-bottom","frameText":"SCAN FOR MENU","centerIcon":"coffee"}'::jsonb,
-    142,
+    0,
     true
   ),
   (
@@ -87,7 +87,7 @@ VALUES
     'Grand Gala Lounge & Bar',
     'https://example.com/vip-drink-list',
     '{"preset":"gold","fgColor":"#fbbf24","bgColor":"#18181b","eyeColor":"#f59e0b","dotStyle":"rounded","eyeStyle":"rounded","frameStyle":"banner-bottom","frameText":"VIP ACCESS","centerIcon":"star"}'::jsonb,
-    89,
+    0,
     true
   ),
   (
@@ -95,7 +95,7 @@ VALUES
     'NextGen Digital Agency',
     'https://example.com/case-studies',
     '{"preset":"midnight","fgColor":"#38bdf8","bgColor":"#0b1120","eyeColor":"#06b6d4","dotStyle":"rounded","eyeStyle":"rounded","frameStyle":"banner-bottom","frameText":"SCAN TO VISIT","centerIcon":"globe"}'::jsonb,
-    230,
+    0,
     true
   )
 ON CONFLICT (code) DO NOTHING;

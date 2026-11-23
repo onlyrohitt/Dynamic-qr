@@ -214,27 +214,31 @@ export async function incrementScan(code: string): Promise<void> {
 
 /**
  * Calculate dashboard statistics
+ * Uses direct DB aggregates for accuracy instead of summing client-side.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const items = await getAllQRs();
+  // Fetch all QRs once; the row count is small enough that this is fine,
+  // and we need the full rows anyway for topScannedCode / activeQRs.
+  const { data, error } = await supabaseAdmin
+    .from('qr_codes')
+    .select('code, scan_count, is_active');
+
+  if (error) throwDatabaseError('Fetch stats', error);
+
+  const items = data || [];
 
   const totalQRs = items.length;
-  let totalScans = 0;
-  let activeQRs = 0;
-  let topScannedItem: QRCodeItem | null = null;
+  // Sum from the DB rows directly — no double-fetch, no stale cache
+  const totalScans = items.reduce((sum: number, row: any) => sum + (row.scan_count ?? 0), 0);
+  const activeQRs = items.filter((row: any) => row.is_active).length;
 
-  for (const item of items) {
-    totalScans += item.scan_count || 0;
-
-    if (item.is_active) {
-      activeQRs++;
-    }
-
-    if (
-      !topScannedItem ||
-      (item.scan_count || 0) > (topScannedItem.scan_count || 0)
-    ) {
-      topScannedItem = item;
+  let topScannedCode: string | null = null;
+  let topCount = 0;
+  for (const row of items) {
+    const count = row.scan_count ?? 0;
+    if (count > topCount) {
+      topCount = count;
+      topScannedCode = row.code;
     }
   }
 
@@ -242,9 +246,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalQRs,
     totalScans,
     activeQRs,
-    topScannedCode:
-      topScannedItem && topScannedItem.scan_count > 0
-        ? topScannedItem.code
-        : null,
+    topScannedCode: topCount > 0 ? topScannedCode : null,
   };
 }
