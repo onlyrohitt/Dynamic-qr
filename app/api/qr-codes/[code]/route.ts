@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getQRByCode, updateQR, deleteQR, getDashboardStats } from '@/lib/qr-storage';
-import { validateDestinationUrl, normaliseUrl } from '@/lib/validate';
+import { validateDestinationUrl, normaliseUrl, formatWhatsAppUrl, formatInstagramUrl } from '@/lib/validate';
 
 function unauth() {
   return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
@@ -58,7 +58,7 @@ export async function PATCH(
     if (body.whatsapp_url === null || body.whatsapp_url === '') {
       updates.whatsapp_url = null;
     } else if (typeof body.whatsapp_url === 'string') {
-      updates.whatsapp_url = normaliseUrl(body.whatsapp_url);
+      updates.whatsapp_url = formatWhatsAppUrl(body.whatsapp_url);
     }
   }
 
@@ -66,7 +66,7 @@ export async function PATCH(
     if (body.instagram_url === null || body.instagram_url === '') {
       updates.instagram_url = null;
     } else if (typeof body.instagram_url === 'string') {
-      updates.instagram_url = normaliseUrl(body.instagram_url);
+      updates.instagram_url = formatInstagramUrl(body.instagram_url);
     }
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getAllQRs, createQR, getDashboardStats } from '@/lib/qr-storage';
-import { validateDestinationUrl, normaliseUrl } from '@/lib/validate';
+import { validateDestinationUrl, normaliseUrl, formatWhatsAppUrl, formatInstagramUrl } from '@/lib/validate';
 
 function unauth() {
   return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
@@ -54,10 +54,10 @@ export async function POST(req: NextRequest) {
 
   const cleanUrl = normaliseUrl(destination);
   const cleanWhatsapp = typeof whatsapp_url === 'string' && whatsapp_url.trim()
-    ? normaliseUrl(whatsapp_url)
+    ? formatWhatsAppUrl(whatsapp_url)
     : null;
   const cleanInstagram = typeof instagram_url === 'string' && instagram_url.trim()
-    ? normaliseUrl(instagram_url)
+    ? formatInstagramUrl(instagram_url)
     : null;
 
   try {

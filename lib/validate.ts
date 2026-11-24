@@ -29,12 +29,28 @@ export function formatWhatsAppUrl(raw: string): string {
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
-  // If user entered phone number or +91..., extract digits or clean it
-  const digits = trimmed.replace(/[^0-9]/g, '');
+  // Strip spaces, dashes, parentheses
+  let digits = trimmed.replace(/[^0-9]/g, '');
+  // If user entered 10-digit number without country code (e.g. 9876543210), prepend 91 (India) or default
+  if (digits.length === 10) {
+    digits = `91${digits}`;
+  }
   if (digits.length >= 7) {
     return `https://wa.me/${digits}`;
   }
   return normaliseUrl(trimmed);
+}
+
+/** Extract clean raw phone/digits from stored whatsapp_url for display */
+export function extractWhatsAppDisplay(url: string | null | undefined): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  const match = trimmed.match(/wa\.me\/([0-9]+)/i);
+  if (match && match[1]) {
+    // If it starts with 91 and has 12 digits, return readable format or raw digits
+    return match[1];
+  }
+  return trimmed;
 }
 
 /** Format or clean an Instagram input into a valid instagram.com link */
@@ -50,6 +66,17 @@ export function formatInstagramUrl(raw: string): string {
     return `https://instagram.com/${cleanHandle}`;
   }
   return normaliseUrl(trimmed);
+}
+
+/** Extract clean handle from stored instagram_url for display */
+export function extractInstagramDisplay(url: string | null | undefined): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  const match = trimmed.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return trimmed;
 }
 
 /** Max URL length we accept */

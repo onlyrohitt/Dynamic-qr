@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeItem, DashboardStats, QRThemeConfig, DotStyle, EyeStyle, FrameStyle, CenterIconType } from '@/lib/types';
 import { THEME_PRESETS, DEFAULT_THEME } from '@/lib/qr-themes';
-import { validateDestinationUrl, normaliseUrl } from '@/lib/validate';
+import { validateDestinationUrl, normaliseUrl, formatWhatsAppUrl, formatInstagramUrl, extractWhatsAppDisplay, extractInstagramDisplay } from '@/lib/validate';
 
 interface Props {
   initialQrs: QRCodeItem[];
@@ -115,8 +115,8 @@ export default function DashboardClient({
   const openQRManager = useCallback((item: QRCodeItem) => {
     setSelectedQR(item);
     setEditUrl(item.destination);
-    setEditWhatsapp(item.whatsapp_url || '');
-    setEditInstagram(item.instagram_url || '');
+    setEditWhatsapp(extractWhatsAppDisplay(item.whatsapp_url));
+    setEditInstagram(extractInstagramDisplay(item.instagram_url));
     setEditLabel(item.label);
     setEditTheme({ ...DEFAULT_THEME, ...(item.theme || {}) });
     setModalMsg(null);
@@ -205,8 +205,8 @@ export default function DashboardClient({
     }
 
     const clean = normaliseUrl(editUrl);
-    const cleanWa = editWhatsapp.trim() ? normaliseUrl(editWhatsapp) : null;
-    const cleanIg = editInstagram.trim() ? normaliseUrl(editInstagram) : null;
+    const cleanWa = editWhatsapp.trim() ? formatWhatsAppUrl(editWhatsapp) : null;
+    const cleanIg = editInstagram.trim() ? formatInstagramUrl(editInstagram) : null;
     setSavingDest(true);
 
     try {
@@ -229,8 +229,8 @@ export default function DashboardClient({
         setQrs((prev) => prev.map((item) => (item.code === updated.code ? updated : item)));
         setSelectedQR(updated);
         setEditUrl(updated.destination);
-        setEditWhatsapp(updated.whatsapp_url || '');
-        setEditInstagram(updated.instagram_url || '');
+        setEditWhatsapp(extractWhatsAppDisplay(updated.whatsapp_url));
+        setEditInstagram(extractInstagramDisplay(updated.instagram_url));
         setEditLabel(updated.label);
         setModalMsg({
           type: 'success',
@@ -329,8 +329,8 @@ export default function DashboardClient({
           label: newLabel.trim(),
           code: newCode.trim() || undefined,
           destination: normaliseUrl(newUrl),
-          whatsapp_url: newWhatsapp.trim() ? normaliseUrl(newWhatsapp) : null,
-          instagram_url: newInstagram.trim() ? normaliseUrl(newInstagram) : null,
+          whatsapp_url: newWhatsapp.trim() ? formatWhatsAppUrl(newWhatsapp) : null,
+          instagram_url: newInstagram.trim() ? formatInstagramUrl(newInstagram) : null,
           theme: presetTheme,
         }),
       });
@@ -953,35 +953,81 @@ export default function DashboardClient({
 
                   <div className="field" style={{ marginBottom: '0.85rem' }}>
                     <label htmlFor="modal-wa-url" style={{ color: '#25D366', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span>💬 Option 2: WhatsApp Link</span>
+                      <span>💬 Option 2: WhatsApp Number</span>
                       <span className="muted" style={{ fontSize: '0.72rem' }}>(Optional)</span>
                     </label>
-                    <input
-                      id="modal-wa-url"
-                      type="url"
-                      value={editWhatsapp}
-                      onChange={(e) => setEditWhatsapp(e.target.value)}
-                      placeholder="https://wa.me/919876543210 or WhatsApp link"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span
+                        style={{
+                          background: 'var(--surface-3)',
+                          border: '1px solid var(--border)',
+                          borderRight: 'none',
+                          borderTopLeftRadius: 'var(--radius)',
+                          borderBottomLeftRadius: 'var(--radius)',
+                          padding: '0.7rem 0.75rem',
+                          fontSize: '0.82rem',
+                          color: '#25D366',
+                          fontFamily: 'var(--mono)',
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none',
+                        }}
+                      >
+                        wa.me/
+                      </span>
+                      <input
+                        id="modal-wa-url"
+                        type="text"
+                        value={editWhatsapp}
+                        onChange={(e) => setEditWhatsapp(e.target.value)}
+                        placeholder="9876543210 (or with country code)"
+                        style={{
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                        }}
+                      />
+                    </div>
                     <span className="muted" style={{ fontSize: '0.7rem' }}>
-                      When provided, scanning this QR will display WhatsApp as the 2nd clickable option.
+                      Just type the phone number (e.g. <code>9876543210</code>). It automatically creates the direct WhatsApp chat link!
                     </span>
                   </div>
 
                   <div className="field" style={{ marginBottom: '0.85rem' }}>
                     <label htmlFor="modal-ig-url" style={{ color: '#e1306c', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span>📸 Option 3: Instagram Link</span>
+                      <span>📸 Option 3: Instagram ID / Username</span>
                       <span className="muted" style={{ fontSize: '0.72rem' }}>(Optional)</span>
                     </label>
-                    <input
-                      id="modal-ig-url"
-                      type="url"
-                      value={editInstagram}
-                      onChange={(e) => setEditInstagram(e.target.value)}
-                      placeholder="https://instagram.com/yourhandle"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span
+                        style={{
+                          background: 'var(--surface-3)',
+                          border: '1px solid var(--border)',
+                          borderRight: 'none',
+                          borderTopLeftRadius: 'var(--radius)',
+                          borderBottomLeftRadius: 'var(--radius)',
+                          padding: '0.7rem 0.75rem',
+                          fontSize: '0.82rem',
+                          color: '#e1306c',
+                          fontFamily: 'var(--mono)',
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none',
+                        }}
+                      >
+                        instagram.com/
+                      </span>
+                      <input
+                        id="modal-ig-url"
+                        type="text"
+                        value={editInstagram}
+                        onChange={(e) => setEditInstagram(e.target.value.replace(/^@/, ''))}
+                        placeholder="your_username"
+                        style={{
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                        }}
+                      />
+                    </div>
                     <span className="muted" style={{ fontSize: '0.7rem' }}>
-                      When provided, scanning this QR will display Instagram as the 3rd clickable option.
+                      Just type the username (e.g. <code>rxhit_stll</code> or <code>@username</code>). No need to paste the full link!
                     </span>
                   </div>
 
@@ -1460,23 +1506,69 @@ export default function DashboardClient({
               </div>
 
               <div className="field">
-                <label style={{ color: '#25D366' }}>2. WhatsApp Link (Optional)</label>
-                <input
-                  type="url"
-                  placeholder="https://wa.me/919876543210"
-                  value={newWhatsapp}
-                  onChange={(e) => setNewWhatsapp(e.target.value)}
-                />
+                <label style={{ color: '#25D366' }}>2. WhatsApp Number (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span
+                    style={{
+                      background: 'var(--surface-3)',
+                      border: '1px solid var(--border)',
+                      borderRight: 'none',
+                      borderTopLeftRadius: 'var(--radius)',
+                      borderBottomLeftRadius: 'var(--radius)',
+                      padding: '0.7rem 0.75rem',
+                      fontSize: '0.82rem',
+                      color: '#25D366',
+                      fontFamily: 'var(--mono)',
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none',
+                    }}
+                  >
+                    wa.me/
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="9876543210"
+                    value={newWhatsapp}
+                    onChange={(e) => setNewWhatsapp(e.target.value)}
+                    style={{
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="field">
-                <label style={{ color: '#e1306c' }}>3. Instagram Link (Optional)</label>
-                <input
-                  type="url"
-                  placeholder="https://instagram.com/yourhandle"
-                  value={newInstagram}
-                  onChange={(e) => setNewInstagram(e.target.value)}
-                />
+                <label style={{ color: '#e1306c' }}>3. Instagram Username / ID (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span
+                    style={{
+                      background: 'var(--surface-3)',
+                      border: '1px solid var(--border)',
+                      borderRight: 'none',
+                      borderTopLeftRadius: 'var(--radius)',
+                      borderBottomLeftRadius: 'var(--radius)',
+                      padding: '0.7rem 0.75rem',
+                      fontSize: '0.82rem',
+                      color: '#e1306c',
+                      fontFamily: 'var(--mono)',
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none',
+                    }}
+                  >
+                    instagram.com/
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="username"
+                    value={newInstagram}
+                    onChange={(e) => setNewInstagram(e.target.value.replace(/^@/, ''))}
+                    style={{
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="field">
