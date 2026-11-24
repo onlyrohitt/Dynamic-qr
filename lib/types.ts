@@ -20,7 +20,9 @@ export interface QRCodeItem {
   id: string;
   code: string; // Unique alphanumeric code, uppercase, e.g. "CUST-1001"
   label: string; // Customer or campaign name
-  destination: string; // Redirect target URL
+  destination: string; // Primary Website / Link target URL
+  whatsapp_url?: string | null; // WhatsApp target URL (e.g. https://wa.me/... or phone link)
+  instagram_url?: string | null; // Instagram profile target URL
   theme: QRThemeConfig;
   scan_count: number;
   is_active: boolean;

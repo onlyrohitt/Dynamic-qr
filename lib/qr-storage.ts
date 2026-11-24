@@ -11,11 +11,21 @@ function throwDatabaseError(operation: string, error: any): never {
 }
 
 function mapQR(row: any): QRCodeItem {
+  // Support both direct columns and theme-embedded fallback for maximum database compatibility
+  const whatsapp_url = row.whatsapp_url !== undefined
+    ? row.whatsapp_url
+    : (row.theme?._whatsapp_url ?? null);
+  const instagram_url = row.instagram_url !== undefined
+    ? row.instagram_url
+    : (row.theme?._instagram_url ?? null);
+
   return {
     id: row.id,
     code: row.code,
     label: row.label || 'Customer QR',
     destination: row.destination,
+    whatsapp_url: whatsapp_url || null,
+    instagram_url: instagram_url || null,
     theme: row.theme && typeof row.theme === 'object'
       ? row.theme
       : DEFAULT_THEME,
@@ -84,6 +94,8 @@ export async function createQR(payload: {
   code?: string;
   label: string;
   destination: string;
+  whatsapp_url?: string | null;
+  instagram_url?: string | null;
   theme?: Partial<QRThemeConfig>;
 }): Promise<QRCodeItem> {
   const label = (payload.label || 'Customer QR').trim();
@@ -109,27 +121,56 @@ export async function createQR(payload: {
     code = generateUniqueCode();
   }
 
-  const newTheme: QRThemeConfig = {
+  const whatsapp_url = (payload.whatsapp_url || '').trim() || null;
+  const instagram_url = (payload.instagram_url || '').trim() || null;
+
+  const newTheme: any = {
     ...DEFAULT_THEME,
     ...(payload.theme || {}),
+    _whatsapp_url: whatsapp_url,
+    _instagram_url: instagram_url,
   };
 
   const now = new Date().toISOString();
 
-  const { data, error } = await supabaseAdmin
+  // Insert payload preserving both direct columns (if migrated) and theme JSON fallback
+  const insertPayload: Record<string, any> = {
+    code,
+    label,
+    destination,
+    theme: newTheme,
+    scan_count: 0,
+    is_active: true,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // If column exists in DB, it will be populated; if not, theme backup guarantees data isn't lost
+  if (whatsapp_url !== undefined) {
+    insertPayload.whatsapp_url = whatsapp_url;
+  }
+  if (instagram_url !== undefined) {
+    insertPayload.instagram_url = instagram_url;
+  }
+
+  let { data, error } = await supabaseAdmin
     .from('qr_codes')
-    .insert({
-      code,
-      label,
-      destination,
-      theme: newTheme,
-      scan_count: 0,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    })
+    .insert(insertPayload)
     .select('*')
     .single();
+
+  // If Supabase throws column not found (e.g. before schema SQL is run in Supabase Studio), fallback without the columns
+  if (error && (error.message?.includes('whatsapp_url') || error.message?.includes('instagram_url'))) {
+    delete insertPayload.whatsapp_url;
+    delete insertPayload.instagram_url;
+    const retry = await supabaseAdmin
+      .from('qr_codes')
+      .insert(insertPayload)
+      .select('*')
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throwDatabaseError('Create QR code', error);
 
@@ -142,7 +183,7 @@ export async function createQR(payload: {
 export async function updateQR(
   code: string,
   updates: Partial<
-    Pick<QRCodeItem, 'destination' | 'label' | 'theme' | 'is_active'>
+    Pick<QRCodeItem, 'destination' | 'label' | 'theme' | 'is_active' | 'whatsapp_url' | 'instagram_url'>
   >
 ): Promise<QRCodeItem | null> {
   const normCode = normalizeCode(code);
@@ -159,20 +200,63 @@ export async function updateQR(
     dbUpdates.label = updates.label;
   }
 
+  // Handle theme and keep fallback sync
+  const existingItem = await getQRByCode(normCode);
+  const existingTheme = existingItem?.theme ? { ...existingItem.theme } : { ...DEFAULT_THEME };
+
+  let currentWhatsapp = updates.whatsapp_url !== undefined
+    ? updates.whatsapp_url
+    : existingItem?.whatsapp_url;
+  let currentInstagram = updates.instagram_url !== undefined
+    ? updates.instagram_url
+    : existingItem?.instagram_url;
+
   if (updates.theme !== undefined) {
-    dbUpdates.theme = updates.theme;
+    dbUpdates.theme = {
+      ...updates.theme,
+      _whatsapp_url: currentWhatsapp || null,
+      _instagram_url: currentInstagram || null,
+    };
+  } else {
+    dbUpdates.theme = {
+      ...existingTheme,
+      _whatsapp_url: currentWhatsapp || null,
+      _instagram_url: currentInstagram || null,
+    };
   }
 
   if (updates.is_active !== undefined) {
     dbUpdates.is_active = updates.is_active;
   }
 
-  const { data, error } = await supabaseAdmin
+  if (updates.whatsapp_url !== undefined) {
+    dbUpdates.whatsapp_url = updates.whatsapp_url;
+  }
+
+  if (updates.instagram_url !== undefined) {
+    dbUpdates.instagram_url = updates.instagram_url;
+  }
+
+  let { data, error } = await supabaseAdmin
     .from('qr_codes')
     .update(dbUpdates)
     .ilike('code', normCode)
     .select('*')
     .maybeSingle();
+
+  // If column error occurs before migration, retry without explicit columns
+  if (error && (error.message?.includes('whatsapp_url') || error.message?.includes('instagram_url'))) {
+    delete dbUpdates.whatsapp_url;
+    delete dbUpdates.instagram_url;
+    const retry = await supabaseAdmin
+      .from('qr_codes')
+      .update(dbUpdates)
+      .ilike('code', normCode)
+      .select('*')
+      .maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throwDatabaseError('Update QR code', error);
 

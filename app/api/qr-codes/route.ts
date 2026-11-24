@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON request.' }, { status: 400 });
   }
 
-  const { label, destination, code, theme } = body || {};
+  const { label, destination, code, theme, whatsapp_url, instagram_url } = body || {};
 
   if (!label || typeof label !== 'string' || !label.trim()) {
     return NextResponse.json({ error: 'Customer or campaign name is required.' }, { status: 422 });
@@ -53,11 +53,19 @@ export async function POST(req: NextRequest) {
   }
 
   const cleanUrl = normaliseUrl(destination);
+  const cleanWhatsapp = typeof whatsapp_url === 'string' && whatsapp_url.trim()
+    ? normaliseUrl(whatsapp_url)
+    : null;
+  const cleanInstagram = typeof instagram_url === 'string' && instagram_url.trim()
+    ? normaliseUrl(instagram_url)
+    : null;
 
   try {
     const item = await createQR({
       label: label.trim(),
       destination: cleanUrl,
+      whatsapp_url: cleanWhatsapp,
+      instagram_url: cleanInstagram,
       code: typeof code === 'string' && code.trim() ? code.trim() : undefined,
       theme: typeof theme === 'object' ? theme : undefined,
     });

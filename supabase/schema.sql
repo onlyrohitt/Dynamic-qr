@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS public.qr_codes (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code            TEXT NOT NULL,
   label           TEXT NOT NULL,                      -- Customer or campaign name
-  destination     TEXT NOT NULL,                      -- The redirect destination URL
+  destination     TEXT NOT NULL,                      -- The redirect destination URL (Option 1: Website)
+  whatsapp_url    TEXT,                               -- WhatsApp URL/link (Option 2: WhatsApp)
+  instagram_url   TEXT,                               -- Instagram profile URL (Option 3: Instagram)
   theme           JSONB NOT NULL DEFAULT '{}'::jsonb, -- Custom styling & theme config
   scan_count      INTEGER NOT NULL DEFAULT 0,         -- Total scans recorded
   is_active       BOOLEAN NOT NULL DEFAULT true,      -- Can pause/resume without deleting
@@ -20,6 +22,10 @@ CREATE TABLE IF NOT EXISTS public.qr_codes (
   -- Unique constraint on code
   CONSTRAINT uq_qr_codes_code UNIQUE (code)
 );
+
+-- Migration statement for existing databases:
+ALTER TABLE public.qr_codes ADD COLUMN IF NOT EXISTS whatsapp_url TEXT;
+ALTER TABLE public.qr_codes ADD COLUMN IF NOT EXISTS instagram_url TEXT;
 
 -- 2. Indexes for instant lookups
 CREATE INDEX IF NOT EXISTS idx_qr_codes_code ON public.qr_codes(code);

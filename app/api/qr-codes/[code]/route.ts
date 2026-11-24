@@ -54,6 +54,22 @@ export async function PATCH(
     updates.destination = normaliseUrl(body.destination);
   }
 
+  if (body.whatsapp_url !== undefined) {
+    if (body.whatsapp_url === null || body.whatsapp_url === '') {
+      updates.whatsapp_url = null;
+    } else if (typeof body.whatsapp_url === 'string') {
+      updates.whatsapp_url = normaliseUrl(body.whatsapp_url);
+    }
+  }
+
+  if (body.instagram_url !== undefined) {
+    if (body.instagram_url === null || body.instagram_url === '') {
+      updates.instagram_url = null;
+    } else if (typeof body.instagram_url === 'string') {
+      updates.instagram_url = normaliseUrl(body.instagram_url);
+    }
+  }
+
   if (body.label !== undefined) {
     if (typeof body.label !== 'string' || !body.label.trim()) {
       return NextResponse.json({ error: 'Label cannot be empty.' }, { status: 422 });

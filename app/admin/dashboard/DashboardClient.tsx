@@ -59,6 +59,8 @@ export default function DashboardClient({
   // Active / Selected QR Modal State
   const [selectedQR, setSelectedQR] = useState<QRCodeItem | null>(null);
   const [editUrl, setEditUrl] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editInstagram, setEditInstagram] = useState('');
   const [editLabel, setEditLabel] = useState('');
   const [editTheme, setEditTheme] = useState<QRThemeConfig>(DEFAULT_THEME);
   const [savingDest, setSavingDest] = useState(false);
@@ -74,6 +76,8 @@ export default function DashboardClient({
   const [newLabel, setNewLabel] = useState('');
   const [newCode, setNewCode] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [newWhatsapp, setNewWhatsapp] = useState('');
+  const [newInstagram, setNewInstagram] = useState('');
   const [newPreset, setNewPreset] = useState('midnight');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -111,6 +115,8 @@ export default function DashboardClient({
   const openQRManager = useCallback((item: QRCodeItem) => {
     setSelectedQR(item);
     setEditUrl(item.destination);
+    setEditWhatsapp(item.whatsapp_url || '');
+    setEditInstagram(item.instagram_url || '');
     setEditLabel(item.label);
     setEditTheme({ ...DEFAULT_THEME, ...(item.theme || {}) });
     setModalMsg(null);
@@ -199,6 +205,8 @@ export default function DashboardClient({
     }
 
     const clean = normaliseUrl(editUrl);
+    const cleanWa = editWhatsapp.trim() ? normaliseUrl(editWhatsapp) : null;
+    const cleanIg = editInstagram.trim() ? normaliseUrl(editInstagram) : null;
     setSavingDest(true);
 
     try {
@@ -207,6 +215,8 @@ export default function DashboardClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destination: clean,
+          whatsapp_url: cleanWa,
+          instagram_url: cleanIg,
           label: editLabel.trim() || selectedQR.label,
         }),
       });
@@ -219,8 +229,15 @@ export default function DashboardClient({
         setQrs((prev) => prev.map((item) => (item.code === updated.code ? updated : item)));
         setSelectedQR(updated);
         setEditUrl(updated.destination);
+        setEditWhatsapp(updated.whatsapp_url || '');
+        setEditInstagram(updated.instagram_url || '');
         setEditLabel(updated.label);
-        setModalMsg({ type: 'success', text: `Destination URL updated! Future scans of code ${updated.code} will redirect here.` });
+        setModalMsg({
+          type: 'success',
+          text: updated.whatsapp_url || updated.instagram_url
+            ? `Links updated! Scans of ${updated.code} will now present 3 options: Website, WhatsApp & Instagram.`
+            : `Destination URL updated! Future scans of code ${updated.code} will redirect directly to this link.`,
+        });
         if (data.stats) setStats(data.stats);
       }
     } catch {
@@ -312,6 +329,8 @@ export default function DashboardClient({
           label: newLabel.trim(),
           code: newCode.trim() || undefined,
           destination: normaliseUrl(newUrl),
+          whatsapp_url: newWhatsapp.trim() ? normaliseUrl(newWhatsapp) : null,
+          instagram_url: newInstagram.trim() ? normaliseUrl(newInstagram) : null,
           theme: presetTheme,
         }),
       });
@@ -326,6 +345,8 @@ export default function DashboardClient({
         setNewLabel('');
         setNewCode('');
         setNewUrl('');
+        setNewWhatsapp('');
+        setNewInstagram('');
         openQRManager(data.qr);
         setToast({ type: 'success', text: `Created new QR for ${data.qr.label} (Code: ${data.qr.code})!` });
       }
@@ -759,11 +780,29 @@ export default function DashboardClient({
                           }}
                           title={item.destination}
                         >
-                          {item.destination}
+                          🌐 {item.destination}
                         </div>
-                        <span className="muted" style={{ fontSize: '0.7rem' }}>
-                          Redirects: /r/{item.code}
-                        </span>
+                        <div className="row" style={{ gap: '0.35rem', marginTop: '0.2rem' }}>
+                          {item.whatsapp_url && (
+                            <span className="tag" style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', fontSize: '0.68rem', padding: '0.1rem 0.35rem' }} title={`WhatsApp: ${item.whatsapp_url}`}>
+                              WhatsApp
+                            </span>
+                          )}
+                          {item.instagram_url && (
+                            <span className="tag" style={{ background: 'rgba(225, 48, 108, 0.15)', color: '#e1306c', fontSize: '0.68rem', padding: '0.1rem 0.35rem' }} title={`Instagram: ${item.instagram_url}`}>
+                              Instagram
+                            </span>
+                          )}
+                          {(item.whatsapp_url || item.instagram_url) ? (
+                            <span className="tag tag-blue" style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}>
+                              3 Options
+                            </span>
+                          ) : (
+                            <span className="muted" style={{ fontSize: '0.68rem' }}>
+                              Direct Redirect
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Theme Indicator */}
@@ -904,11 +943,12 @@ export default function DashboardClient({
                   </div>
                 )}
 
-                {/* Destination URL Field */}
+                {/* Destination & Multi-Link Options Fields */}
                 <div className="card" style={{ padding: '1.25rem', background: 'var(--surface-2)' }}>
-                  <div className="field" style={{ marginBottom: '0.75rem' }}>
-                    <label htmlFor="modal-dest-url" style={{ color: '#fff', fontSize: '0.85rem' }}>
-                      Redirect Destination URL (Where scans go)
+                  <div className="field" style={{ marginBottom: '0.85rem' }}>
+                    <label htmlFor="modal-dest-url" style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>🌐 Option 1: Main Website / Link</span>
+                      <span className="muted" style={{ fontSize: '0.72rem' }}>(Required)</span>
                     </label>
                     <input
                       id="modal-dest-url"
@@ -919,13 +959,47 @@ export default function DashboardClient({
                         setModalFieldError('');
                       }}
                       className={modalFieldError ? 'error' : ''}
-                      placeholder="https://example.com/customer-page"
+                      placeholder="https://example.com/menu-or-shop"
                     />
                     {modalFieldError && (
                       <span style={{ color: 'var(--error)', fontSize: '0.78rem' }}>
                         {modalFieldError}
                       </span>
                     )}
+                  </div>
+
+                  <div className="field" style={{ marginBottom: '0.85rem' }}>
+                    <label htmlFor="modal-wa-url" style={{ color: '#25D366', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>💬 Option 2: WhatsApp Link</span>
+                      <span className="muted" style={{ fontSize: '0.72rem' }}>(Optional)</span>
+                    </label>
+                    <input
+                      id="modal-wa-url"
+                      type="url"
+                      value={editWhatsapp}
+                      onChange={(e) => setEditWhatsapp(e.target.value)}
+                      placeholder="https://wa.me/919876543210 or WhatsApp link"
+                    />
+                    <span className="muted" style={{ fontSize: '0.7rem' }}>
+                      When provided, scanning this QR will display WhatsApp as the 2nd clickable option.
+                    </span>
+                  </div>
+
+                  <div className="field" style={{ marginBottom: '0.85rem' }}>
+                    <label htmlFor="modal-ig-url" style={{ color: '#e1306c', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>📸 Option 3: Instagram Link</span>
+                      <span className="muted" style={{ fontSize: '0.72rem' }}>(Optional)</span>
+                    </label>
+                    <input
+                      id="modal-ig-url"
+                      type="url"
+                      value={editInstagram}
+                      onChange={(e) => setEditInstagram(e.target.value)}
+                      placeholder="https://instagram.com/yourhandle"
+                    />
+                    <span className="muted" style={{ fontSize: '0.7rem' }}>
+                      When provided, scanning this QR will display Instagram as the 3rd clickable option.
+                    </span>
                   </div>
 
                   <div className="field" style={{ marginBottom: '1rem' }}>
@@ -946,18 +1020,18 @@ export default function DashboardClient({
                       onClick={handleSaveDestination}
                       disabled={savingDest}
                     >
-                      {savingDest ? <span className="spinner" /> : '💾 Save Destination URL'}
+                      {savingDest ? <span className="spinner" /> : '💾 Save All 3 Links'}
                     </button>
 
                     <a
-                      href={editUrl.startsWith('http') ? editUrl : `https://${editUrl}`}
+                      href={`${appUrl}/r/${selectedQR.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-ghost"
                       style={{ fontSize: '0.8rem' }}
-                      title="Test destination in new tab"
+                      title="Preview QR landing page in new tab"
                     >
-                      🔗 Test Link
+                      📱 Preview Page
                     </a>
                   </div>
                 </div>
@@ -1390,12 +1464,32 @@ export default function DashboardClient({
               </div>
 
               <div className="field">
-                <label>Destination URL (Where scans redirect) *</label>
+                <label>1. Main Website / Destination URL *</label>
                 <input
                   type="url"
                   placeholder="https://example.com/menu"
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="field">
+                <label style={{ color: '#25D366' }}>2. WhatsApp Link (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://wa.me/919876543210"
+                  value={newWhatsapp}
+                  onChange={(e) => setNewWhatsapp(e.target.value)}
+                />
+              </div>
+
+              <div className="field">
+                <label style={{ color: '#e1306c' }}>3. Instagram Link (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://instagram.com/yourhandle"
+                  value={newInstagram}
+                  onChange={(e) => setNewInstagram(e.target.value)}
                 />
               </div>
 
