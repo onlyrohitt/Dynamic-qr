@@ -279,7 +279,7 @@ export function generateStyledQRSvg(
     `;
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}" shape-rendering="geometricPrecision">${elements}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="100%" height="100%" style="display:block;max-width:100%;max-height:100%" shape-rendering="geometricPrecision">${elements}</svg>`;
   return svg;
 }
 

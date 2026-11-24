@@ -1119,6 +1119,7 @@ export default function DashboardClient({
               <div className="col" style={{ gap: '1.2rem', alignItems: 'center' }}>
                 {/* Live SVG Preview Box */}
                 <div
+                  className="qr-preview-container"
                   style={{
                     width: 240,
                     height: 240,
@@ -1131,6 +1132,7 @@ export default function DashboardClient({
                     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)',
                     border: '1px solid var(--border)',
                     position: 'relative',
+                    overflow: 'hidden',
                   }}
                 >
                   {loadingSvg && (
@@ -1143,6 +1145,7 @@ export default function DashboardClient({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        zIndex: 2,
                       }}
                     >
                       <span className="spinner" />
@@ -1152,7 +1155,7 @@ export default function DashboardClient({
                   {svgPreview ? (
                     <div
                       dangerouslySetInnerHTML={{ __html: svgPreview }}
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     />
                   ) : (
                     <img
@@ -1160,7 +1163,7 @@ export default function DashboardClient({
                       alt="QR preview"
                       width={220}
                       height={220}
-                      style={{ display: 'block', borderRadius: 8 }}
+                      style={{ display: 'block', borderRadius: 8, maxWidth: '100%', height: 'auto' }}
                     />
                   )}
                 </div>
@@ -1535,7 +1538,7 @@ export default function DashboardClient({
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: 540 }}
           >
-            <div className="modal-header">
+            <div className="modal-header no-print">
               <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f8fafc' }}>
                 Printable QR Display Card
               </span>
@@ -1545,7 +1548,14 @@ export default function DashboardClient({
                   className="btn btn-primary btn-sm"
                   onClick={() => window.print()}
                 >
-                  🖨️ Print (Ctrl+P)
+                  🖨️ Print Card (Ctrl+P)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleDownload(printQR, 'png', 1200)}
+                >
+                  💾 Save PNG
                 </button>
                 <button
                   type="button"
@@ -1580,10 +1590,19 @@ export default function DashboardClient({
                 </p>
 
                 <div
+                  className="print-qr-svg"
                   style={{
                     width: 240,
                     height: 240,
                     margin: '0 auto 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: printQR.theme?.bgColor || '#ffffff',
+                    borderRadius: 12,
+                    padding: 6,
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden',
                   }}
                   dangerouslySetInnerHTML={{ __html: printSvg }}
                 />

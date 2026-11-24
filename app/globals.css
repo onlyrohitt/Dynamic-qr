@@ -485,9 +485,69 @@ tr:hover td { background: rgba(30, 41, 59, 0.4); }
 .col { display: flex; flex-direction: column; gap: 0.5rem; }
 .muted { color: var(--text-2); font-size: 0.82rem; }
 
+/* ── SVG responsive rule ─────────────────────────── */
+.qr-preview-container svg,
+.print-qr-svg svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: block !important;
+  object-fit: contain !important;
+}
+
 /* ── Print Media ─────────────────────────────────── */
 @media print {
-  body { background: #fff !important; color: #000 !important; }
-  .top-bar, .hero-lookup-card, .btn, .modal-overlay { display: none !important; }
-  .print-card-target { display: block !important; padding: 2rem !important; }
+  @page {
+    margin: 1.5cm;
+    size: auto;
+  }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+  /* Hide all dashboard chrome, headers, lookup, modals and overlays */
+  body * {
+    visibility: hidden !important;
+  }
+  /* Only show the printable target card and its children */
+  .print-card-target,
+  .print-card-target * {
+    visibility: visible !important;
+  }
+  .print-card-target {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    padding: 2.5rem 2rem !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 20px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    width: 380px !important;
+    max-width: 90vw !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+  .print-card-target .print-qr-svg {
+    width: 260px !important;
+    height: 260px !important;
+    margin: 0 auto 1.5rem !important;
+  }
+  .print-card-target .print-qr-svg svg {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  /* Hide close/action buttons inside the print preview */
+  .no-print {
+    display: none !important;
+  }
 }
