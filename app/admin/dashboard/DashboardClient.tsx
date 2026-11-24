@@ -389,31 +389,14 @@ export default function DashboardClient({
     const { code } = item;
     setDownloading(true);
     try {
-      const endpoint = `/api/qr-svg/${encodeURIComponent(code)}?download=true`;
+      const endpoint = format === 'png'
+        ? `/api/qr-image/${encodeURIComponent(code)}?size=${size}&download=true`
+        : `/api/qr-svg/${encodeURIComponent(code)}?download=true`;
 
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error('Download failed');
 
-      let blob = await res.blob();
-      if (format === 'png') {
-        const imageUrl = URL.createObjectURL(blob);
-        try {
-          const image = new Image();
-          image.src = imageUrl;
-          await image.decode();
-          const canvas = document.createElement('canvas');
-          canvas.width = size;
-          canvas.height = Math.round(size * image.height / image.width);
-          const context = canvas.getContext('2d');
-          if (!context) throw new Error('Canvas is unavailable');
-          context.fillStyle = item.theme?.bgColor || '#ffffff';
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('PNG conversion failed')), 'image/png'));
-        } finally {
-          URL.revokeObjectURL(imageUrl);
-        }
-      }
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

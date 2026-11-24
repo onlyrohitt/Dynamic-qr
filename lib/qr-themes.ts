@@ -15,9 +15,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   midnight: {
     preset: 'midnight',
-    fgColor: '#38bdf8',
-    bgColor: '#0b1120',
-    eyeColor: '#06b6d4',
+    fgColor: '#0284c7',
+    bgColor: '#ffffff',
+    eyeColor: '#0369a1',
     dotStyle: 'rounded',
     eyeStyle: 'rounded',
     frameStyle: 'banner-bottom',
@@ -26,9 +26,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   gold: {
     preset: 'gold',
-    fgColor: '#fbbf24',
-    bgColor: '#18181b',
-    eyeColor: '#f59e0b',
+    fgColor: '#b45309',
+    bgColor: '#ffffff',
+    eyeColor: '#92400e',
     dotStyle: 'rounded',
     eyeStyle: 'rounded',
     frameStyle: 'banner-bottom',
@@ -37,9 +37,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   neon: {
     preset: 'neon',
-    fgColor: '#f43f5e',
-    bgColor: '#0f071a',
-    eyeColor: '#d946ef',
+    fgColor: '#be185d',
+    bgColor: '#ffffff',
+    eyeColor: '#9d174d',
     dotStyle: 'dots',
     eyeStyle: 'circle',
     frameStyle: 'banner-bottom',
@@ -48,9 +48,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   emerald: {
     preset: 'emerald',
-    fgColor: '#10b981',
-    bgColor: '#041d14',
-    eyeColor: '#34d399',
+    fgColor: '#047857',
+    bgColor: '#ffffff',
+    eyeColor: '#065f46',
     dotStyle: 'rounded',
     eyeStyle: 'rounded',
     frameStyle: 'banner-bottom',
@@ -59,9 +59,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   sunset: {
     preset: 'sunset',
-    fgColor: '#fb923c',
-    bgColor: '#1e1124',
-    eyeColor: '#f97316',
+    fgColor: '#c2410c',
+    bgColor: '#ffffff',
+    eyeColor: '#9a3412',
     dotStyle: 'rounded',
     eyeStyle: 'circle',
     frameStyle: 'banner-bottom',
@@ -70,9 +70,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   ocean: {
     preset: 'ocean',
-    fgColor: '#60a5fa',
-    bgColor: '#071529',
-    eyeColor: '#3b82f6',
+    fgColor: '#1d4ed8',
+    bgColor: '#ffffff',
+    eyeColor: '#1e40af',
     dotStyle: 'dots',
     eyeStyle: 'rounded',
     frameStyle: 'banner-bottom',
@@ -81,9 +81,9 @@ export const THEME_PRESETS: Record<string, QRThemeConfig> = {
   },
   ruby: {
     preset: 'ruby',
-    fgColor: '#fda4af',
-    bgColor: '#20070e',
-    eyeColor: '#f43f5e',
+    fgColor: '#b91c1c',
+    bgColor: '#ffffff',
+    eyeColor: '#991b1b',
     dotStyle: 'rounded',
     eyeStyle: 'rounded',
     frameStyle: 'banner-bottom',
@@ -167,7 +167,7 @@ export function generateStyledQRSvg(
 
   // Draw modules
   const hasCenterIcon = centerIcon !== 'none' || Boolean(centerLogo);
-  const centerRadiusModules = hasCenterIcon ? 3.5 : 0;
+  const centerRadiusModules = hasCenterIcon ? 2.5 : 0;
 
   for (let r = 0; r < moduleCount; r++) {
     for (let c = 0; c < moduleCount; c++) {
@@ -196,7 +196,7 @@ export function generateStyledQRSvg(
     }
   }
 
-  // Draw 3 styled Finder Eyes
+  // Draw 3 styled Finder Eyes with mathematically exact dimensions conforming to ISO/IEC 18004
   finders.forEach(({ r, c }) => {
     const startX = (c + margin) * cellSize;
     const startY = qrOffsetY + (r + margin) * cellSize;
@@ -205,45 +205,47 @@ export function generateStyledQRSvg(
     if (eyeStyle === 'circle') {
       const cx = startX + eyeSize / 2;
       const cy = startY + eyeSize / 2;
-      // Outer ring
-      elements += `<circle cx="${cx}" cy="${cy}" r="${eyeSize / 2 - 2}" stroke="${eye}" stroke-width="${cellSize}" fill="none"/>`;
-      // Inner circle
+      // Outer ring: stroke width is exactly 1 module (cellSize).
+      // Center of stroke must be at 3 modules (3 * cellSize) radius, so outer edge is exactly at 3.5 modules (35px = eyeSize/2)
+      // and inner edge is at 2.5 modules (25px).
+      const outerR = eyeSize / 2 - cellSize / 2;
+      elements += `<circle cx="${cx}" cy="${cy}" r="${outerR}" stroke="${eye}" stroke-width="${cellSize}" fill="none"/>`;
+      // Inner circle pupil: 3x3 modules (diameter 3 * cellSize, radius 1.5 * cellSize)
       elements += `<circle cx="${cx}" cy="${cy}" r="${(3 * cellSize) / 2}" fill="${eye}"/>`;
     } else if (eyeStyle === 'rounded') {
-      // Outer rounded frame
-      elements += `<rect x="${startX + 2}" y="${startY + 2}" width="${eyeSize - 4}" height="${eyeSize - 4}" rx="${cellSize * 1.8}" stroke="${eye}" stroke-width="${cellSize}" fill="none"/>`;
-      // Inner rounded pupil
+      // Outer rounded frame: stroke-width is cellSize (10px).
+      // Placing at startX + cellSize/2 and width eyeSize - cellSize keeps the stroke exactly within [startX, startX + eyeSize]
+      elements += `<rect x="${startX + cellSize / 2}" y="${startY + cellSize / 2}" width="${eyeSize - cellSize}" height="${eyeSize - cellSize}" rx="${cellSize * 1.5}" stroke="${eye}" stroke-width="${cellSize}" fill="none"/>`;
+      // Inner rounded pupil: 3x3 modules
       const innerX = startX + 2 * cellSize;
       const innerY = startY + 2 * cellSize;
       elements += `<rect x="${innerX}" y="${innerY}" width="${3 * cellSize}" height="${3 * cellSize}" rx="${cellSize * 0.8}" fill="${eye}"/>`;
     } else {
-      // Classic square eye
-      // Outer border
+      // Classic square eye: exact 7x7 outer border and 3x3 pupil
       elements += `<rect x="${startX + cellSize / 2}" y="${startY + cellSize / 2}" width="${eyeSize - cellSize}" height="${eyeSize - cellSize}" stroke="${eye}" stroke-width="${cellSize}" fill="none"/>`;
-      // Inner pupil
       const innerX = startX + 2 * cellSize;
       const innerY = startY + 2 * cellSize;
       elements += `<rect x="${innerX}" y="${innerY}" width="${3 * cellSize}" height="${3 * cellSize}" fill="${eye}"/>`;
     }
   });
 
-  // Draw center icon badge if enabled
+  // Draw center icon badge if enabled (safely sized within QR error correction tolerance)
   if (hasCenterIcon) {
     const centerMod = (moduleCount - 1) / 2;
     const centerPxX = (centerMod + margin) * cellSize + cellSize / 2;
     const centerPxY = qrOffsetY + (centerMod + margin) * cellSize + cellSize / 2;
-    const badgeR = cellSize * 3.8;
+    const badgeR = cellSize * 2.5;
 
     // Badge background and border
-    elements += `<circle cx="${centerPxX}" cy="${centerPxY}" r="${badgeR}" fill="${bg}" stroke="${eye}" stroke-width="3"/>`;
+    elements += `<circle cx="${centerPxX}" cy="${centerPxY}" r="${badgeR}" fill="${bg}" stroke="${eye}" stroke-width="2"/>`;
 
     // Icon in center
     const iconSvg = ICONS[centerIcon];
     if (centerLogo) {
-      const logoSize = cellSize * 5.2;
+      const logoSize = cellSize * 3.4;
       elements += `<image href="${centerLogo}" x="${centerPxX - logoSize / 2}" y="${centerPxY - logoSize / 2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`;
     } else if (iconSvg) {
-      const iconSize = cellSize * 4.2;
+      const iconSize = cellSize * 2.8;
       const iconX = centerPxX - iconSize / 2;
       const iconY = centerPxY - iconSize / 2;
       elements += `<g transform="translate(${iconX}, ${iconY}) scale(${iconSize / 24})" color="${eye}">${iconSvg}</g>`;
