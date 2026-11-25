@@ -406,7 +406,7 @@ function renderMultiLinkHtml({
             </svg>
           </div>
           <div class="text-col">
-            <span class="btn-title">Visit Website</span>
+            <span class="btn-title">Google Review</span>
             <span class="btn-desc">Open destination link</span>
           </div>
         </div>
